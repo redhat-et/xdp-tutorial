@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0)
 CC := gcc
 
-all: common_params.o common_user_bpf_xdp.o common_libbpf.o
+all: common_params.o # common_user_bpf_xdp.o common_libbpf.o
 
 CFLAGS := -g -Wall
 
