@@ -21,12 +21,14 @@ USER_OBJ := ${USER_C:.c=.o}
 
 # Expect this is defined by including Makefile, but define if not
 COMMON_DIR ?= ../common/
-LIBBPF_DIR ?= ../libbpf/src/
+LIBBPF_DIR ?= ../xdp-tools/lib/libbpf/src/
+LIBXDP_DIR ?= ../xdp-tools/lib/libxdp/
 
 COPY_LOADER ?=
 LOADER_DIR ?= $(COMMON_DIR)/../basic-solutions
 
 OBJECT_LIBBPF = $(LIBBPF_DIR)/libbpf.a
+OBJECT_LIBXDP = $(LIBXDP_DIR)/libxdp.a
 
 # Extend if including Makefile already added some
 COMMON_OBJS += $(COMMON_DIR)/common_params.o $(COMMON_DIR)/common_user_bpf_xdp.o
@@ -41,11 +43,11 @@ KERN_USER_H ?= $(wildcard common_kern_user.h)
 
 CFLAGS ?= -I$(LIBBPF_DIR)/build/usr/include/ -g
 CFLAGS += -I../headers/
-LDFLAGS ?= -L$(LIBBPF_DIR)
+LDFLAGS ?= -L$(LIBBPF_DIR) -L$(LIBXDP_DIR)
 
-BPF_CFLAGS ?= -I$(LIBBPF_DIR)/build/usr/include/ -I../headers/
+BPF_CFLAGS ?= -I$(LIBBPF_DIR)/build/usr/include/ -I../xdp-tools/headers -I../headers/
 
-LIBS = -l:libbpf.a -lelf $(USER_LIBS)
+LIBS = -l:libxdp.a -l:libbpf.a -lelf -lz $(USER_LIBS)
 
 all: llvm-check $(USER_TARGETS) $(XDP_OBJ) $(COPY_LOADER) $(COPY_STATS)
 
@@ -86,7 +88,7 @@ llvm-check: $(CLANG) $(LLC)
 
 $(OBJECT_LIBBPF):
 	@if [ ! -d $(LIBBPF_DIR) ]; then \
-		echo "Error: Need libbpf submodule"; \
+		echo "Error: Need libbpf submodule" $(LIBBPF_DIR); \
 		echo "May need to run git submodule update --init"; \
 		exit 1; \
 	else \
