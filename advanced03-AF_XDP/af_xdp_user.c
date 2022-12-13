@@ -16,7 +16,8 @@
 #include <sys/resource.h>
 
 #include <bpf/bpf.h>
-#include <bpf/xsk.h>
+#include <xdp/xsk.h>
+#include <xdp/libxdp.h>
 
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -25,24 +26,22 @@
 #include <linux/ipv6.h>
 #include <linux/icmpv6.h>
 
-
 #include "../common/common_params.h"
 #include "../common/common_user_bpf_xdp.h"
 #include "../common/common_libbpf.h"
-
 
 #define NUM_FRAMES         4096
 #define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
 #define RX_BATCH_SIZE      64
 #define INVALID_UMEM_FRAME UINT64_MAX
 
+static struct xdp_program *prog;
 struct xsk_umem_info {
 	struct xsk_ring_prod fq;
 	struct xsk_ring_cons cq;
 	struct xsk_umem *umem;
 	void *buffer;
 };
-
 struct stats_record {
 	uint64_t timestamp;
 	uint64_t rx_packets;
@@ -50,7 +49,6 @@ struct stats_record {
 	uint64_t tx_packets;
 	uint64_t tx_bytes;
 };
-
 struct xsk_socket_info {
 	struct xsk_ring_cons rx;
 	struct xsk_ring_prod tx;
@@ -172,7 +170,6 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	struct xsk_socket_config xsk_cfg;
 	struct xsk_socket_info *xsk_info;
 	uint32_t idx;
-	uint32_t prog_id = 0;
 	int i;
 	int ret;
 
@@ -193,12 +190,7 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	if (ret)
 		goto error_exit;
 
-	ret = bpf_get_link_xdp_id(cfg->ifindex, &prog_id, cfg->xdp_flags);
-	if (ret)
-		goto error_exit;
-
 	/* Initialize umem frame allocation */
-
 	for (i = 0; i < NUM_FRAMES; i++)
 		xsk_info->umem_frame_addr[i] = i * FRAME_SIZE;
 
@@ -277,7 +269,7 @@ static bool process_packet(struct xsk_socket_info *xsk,
 {
 	uint8_t *pkt = xsk_umem__get_data(xsk->umem->buffer, addr);
 
-        /* Lesson#3: Write an IPv6 ICMP ECHO parser to send responses
+    /* Lesson#3: Write an IPv6 ICMP ECHO parser to send responses
 	 *
 	 * Some assumptions to make it easier:
 	 * - No VLAN handling
@@ -504,20 +496,25 @@ int main(int argc, char **argv)
 	int xsks_map_fd;
 	void *packet_buffer;
 	uint64_t packet_buffer_size;
+	DECLARE_LIBBPF_OPTS(bpf_object_open_opts, opts);
+	DECLARE_LIBXDP_OPTS(xdp_program_opts, xdp_opts, 0);
+    struct config cfg = {
+        .xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE,
+	    .ifindex   = -1,
+    };
 	struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
-	struct config cfg = {
-		.ifindex   = -1,
-		.do_unload = false,
-		.filename = "",
-		.progsec = "xdp_sock"
-	};
+	char progname[] = "xdp_sock_prog";
 	struct xsk_umem_info *umem;
 	struct xsk_socket_info *xsk_socket;
-	struct bpf_object *bpf_obj = NULL;
 	pthread_t stats_poll_thread;
+	int err;
+	char errmsg[1024];
+	char filename[256];
 
 	/* Global shutdown handler */
 	signal(SIGINT, exit_application);
+
+	snprintf(cfg.filename, sizeof(cfg.filename), "af_xdp_kern.o");
 
 	/* Cmdline options can change progsec */
 	parse_cmdline_args(argc, argv, long_options, &cfg, __doc__);
@@ -531,20 +528,35 @@ int main(int argc, char **argv)
 
 	/* Unload XDP program if requested */
 	if (cfg.do_unload)
-		return xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
+		return xdp_program__detach(prog, cfg.ifindex, cfg.xdp_flags, 0);
 
 	/* Load custom program if configured */
 	if (cfg.filename[0] != 0) {
 		struct bpf_map *map;
 
-		bpf_obj = load_bpf_and_xdp_attach(&cfg);
-		if (!bpf_obj) {
-			/* Error handling done in load_bpf_and_xdp_attach() */
-			exit(EXIT_FAILURE);
+		snprintf(filename, sizeof(filename), cfg.filename);
+
+		xdp_opts.open_filename = filename;
+		xdp_opts.prog_name = progname;
+		xdp_opts.opts = &opts;
+
+		prog = xdp_program__create(&xdp_opts);
+		err = libxdp_get_error(prog);
+		if (err) {
+			libxdp_strerror(err, errmsg, sizeof(errmsg));
+			fprintf(stderr, "ERR: loading program: %s\n", errmsg);
+			return err;
+		}
+		err = xdp_program__attach(prog, cfg.ifindex, cfg.xdp_flags, 0);
+		if (err) {
+			libxdp_strerror(err, errmsg, sizeof(errmsg));
+			fprintf(stderr, "Couldn't attach XDP program on iface '%s' : %s (%d)\n",
+				cfg.ifname, errmsg, err);
+			return err;
 		}
 
 		/* We also need to load the xsks_map */
-		map = bpf_object__find_map_by_name(bpf_obj, "xsks_map");
+		map = bpf_object__find_map_by_name(xdp_program__bpf_obj(prog), "xsks_map");
 		xsks_map_fd = bpf_map__fd(map);
 		if (xsks_map_fd < 0) {
 			fprintf(stderr, "ERROR: no xsks map found: %s\n",
@@ -605,7 +617,7 @@ int main(int argc, char **argv)
 	/* Cleanup */
 	xsk_socket__delete(xsk_socket->xsk);
 	xsk_umem__delete(umem->umem);
-	xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
+	xdp_program__detach(prog, cfg.ifindex, cfg.xdp_flags, 0);
 
 	return EXIT_OK;
 }

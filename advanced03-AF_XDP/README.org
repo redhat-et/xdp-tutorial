@@ -33,21 +33,23 @@ descriptor ring queues:
   a ring, that point into UMEM area.
 
 There are *no memory allocation* per packet. Instead the UMEM memory area
-used for packets is pre-allocated and there by bounded. The UMEM area
-consists of a number of equally sized chunks, that userspace have registered
+used for packets is pre-allocated and thereby bounded. The UMEM area
+consists of a number of equally sized chunks, that user space have registered
 with the kernel (via XDP_UMEM_REG setsockopt system call). *Importantly*:
 This also means that you are responsible for returning frames to UMEM in
 timely manner, and pre-allocated enough for your application usage pattern.
 
-The [[http://www.lemis.com/grog/Documentation/vj/lca06vj.pdf][transport signature]] that Van Jacobson talked about, are replaced by the
-XDP/eBPF program choosing which AF_XDP socket to XDP_REDIRECT into.
+The [[http://www.lemis.com/grog/Documentation/vj/lca06vj.pdf][transport signature]]
+that Van Jacobson talked about, are replaced by the XDP/eBPF program choosing which
+AF_XDP socket to XDP_REDIRECT into.
 
 ** Details: Actually four SPSC ring queues
 
-As explained in the [[ https://www.kernel.org/doc/html/latest/networking/af_xdp.html][AF_XDP kernel doc]] there are actually 4 SPSC ring queues.
+As explained in the [[ https://www.kernel.org/doc/html/latest/networking/af_xdp.html][AF_XDP kernel doc]]
+there are actually 4 SPSC ring queues.
 
 In summary: the AF_XDP /socket/ has two rings for *RX* and *TX*, which
-contain descriptors that points into UMEM area. The UMEM area has two rings:
+contain descriptors that point into UMEM area. The UMEM area has two rings:
 *FILL* ring and *COMPLETION* ring. In the *FILL* ring: the application gives
 the kernel a packet area to *RX* fill. In the *COMPLETION* ring, the kernel
 tells the application that *TX is done* for a packet area (which then can be
@@ -65,8 +67,9 @@ receiving raw-frames from a specific RX-queue id number. NICs will by
 default spread flows with RSS-hashing over all available RX-queues. Thus,
 traffic likely not hitting queue you expect.
 
-In order to fix that problem, you *MUST* configure the NIC to steer flow to a specific RX-queue.
-This can be done via ethtool or TC HW offloading filter setup.
+In order to fix that problem, you *MUST* configure the NIC to steer flow to
+a specific RX-queue. This can be done via ethtool or TC HW offloading filter
+setup.
 
 The following example shows how to configure the NIC to steer all UDP ipv4 traffic
 to /RX-queue id/ 42:
@@ -80,8 +83,8 @@ The parameter /action/ specifies the id of the target /RX-queue/.
 In general, a flow rule is composed of a matching criteria and an action.
 L2, L3 and L4 header values can be used to specify the matching criteria.
 For a comprehensive documentation, please check out the man page of ethtool.
-It documents all available header values that can be used as part of the matching criteria.
-
+It documents all available header values that can be used as part of the
+matching criteria.
 
 Alternative work-arounds:
 1. Create as many AF_XDP sockets as RXQs, and have userspace poll()/select
@@ -112,7 +115,7 @@ allocating memory and copying over the frame.
 The end goal of this lesson is to build an AF_XDP program that will send
 packets to userspace and if they are IPv6 ping packets reply.
 
-We will do using the automatically installed XDP program, but one of the
+We will do this using the automatically installed XDP program, but one of the
 assignments it to implement this manually.
 
 ** Assignment 1: Run the example program to eat all packets
@@ -170,8 +173,7 @@ AF_XDP RX:             2 pkts (         0 pps)           0 Kbytes (     0 Mbits/
 
 Note that the full solution is included in the af_xdp_kern.c file.
 
-
-** Assignment 3: Write an userspace program to reply to IPv6 ping packets
+** Assignment 3: Write a user space program to reply to IPv6 ping packets
 For the final exercise, you need to write some userspace code that will
 reply to the ping packets. This needs be done inside the process_packet()
 function.
