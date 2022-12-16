@@ -10,6 +10,8 @@ static const char *__doc__ = "XDP monitor via tracepoints\n";
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <net/if.h>
+#include <linux/perf_event.h>
+#include <sys/syscall.h>
 
 #include <locale.h>
 #include <unistd.h>
@@ -174,7 +176,7 @@ static int __check_map(int map_fd, struct bpf_map_info *exp)
 	return __check_map_fd_info(map_fd, &info, exp);
 }
 
-static int check_map(const char *name, const struct bpf_map_def *def, int fd)
+static int check_map(const char *name, int fd)
 {
 	struct {
 		const char          *name;
@@ -246,15 +248,13 @@ static int check_maps(struct bpf_object *obj)
 	struct bpf_map *map;
 
 	bpf_object__for_each_map(map, obj) {
-		const struct bpf_map_def *def;
 		const char *name;
 		int fd;
 
 		name = bpf_map__name(map);
-		def  = bpf_map__def(map);
 		fd   = bpf_map__fd(map);
 
-		if (check_map(name, def, fd))
+		if (check_map(name, fd))
 			return -1;
 	}
 
@@ -772,14 +772,6 @@ int filename__read_int(const char *filename, int *value)
 	return err;
 }
 
-static inline int
-sys_perf_event_open(struct perf_event_attr *attr,
-		    pid_t pid, int cpu, int group_fd,
-		    unsigned long flags)
-{
-	return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
-}
-
 static struct bpf_object* load_bpf_and_trace_attach(struct config *cfg)
 {
 	struct bpf_object *obj;
@@ -801,7 +793,7 @@ static struct bpf_object* load_bpf_and_trace_attach(struct config *cfg)
 	}
 
 	bpf_object__for_each_program(prog, obj) {
-		const char *sec = bpf_program__title(prog, true);
+		const char *sec = bpf_program__section_name(prog);
 		char *tp;
 
 		if (!sec) {
