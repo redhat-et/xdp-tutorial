@@ -5,18 +5,33 @@
 #include <bpf/bpf_endian.h>
 #include <netinet/ether.h>
 
-// The parsing helper functions from the packet01 lesson have moved here
-#include "../common/parsing_helpers.h"
-#include "../common/rewrite_helpers.h"
-
-/* Defines xdp_stats_map */
-#include "../common/xdp_stats_kern_user.h"
-#include "../common/xdp_stats_kern.h"
+/* Header cursor to keep track of current parsing position */
+struct hdr_cursor {
+    void *pos;
+};
 
 
-#ifndef memcpy
-#define memcpy(dest, src, n) __builtin_memcpy((dest), (src), (n))
-#endif
+static __always_inline int parse_ethhdr(struct hdr_cursor *nh,
+                    void *data_end,
+                    struct ethhdr **ethhdr)
+{
+    struct ethhdr *eth = nh->pos;
+    int hdrsize = sizeof(*eth);
+    __u16 h_proto;
+
+    /* Byte-count bounds check; check if current pointer + size of header
+     * is after data_end.
+     */
+    if (nh->pos + hdrsize > data_end)
+        return -1;
+
+    nh->pos += hdrsize;
+    *ethhdr = eth;
+    h_proto = eth->h_proto;
+
+    return h_proto; /* network-byte-order */
+}
+
 
 struct {
 	__uint(type, BPF_MAP_TYPE_DEVMAP);
@@ -44,26 +59,41 @@ int xdp_prog_redirect(struct xdp_md *ctx)
 	struct hdr_cursor nh;
 	struct ethhdr *eth;
 	int eth_type;
-	int action = XDP_PASS;
 	unsigned char *dst;
+    int *value;
+	int index = 0;
 
 	/* These keep track of the next header type and iterator pointer */
 	nh.pos = data;
 
 	/* Parse Ethernet and IP/IPv6 headers */
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
-	if (eth_type == -1)
+	if (eth_type == -1){
+//      cat /sys/kernel/debug/tracing/trace_pipe
+//		bpf_printk("Dont know the ethtype");
 		goto out;
+	}
 
 	/* Do we know where to redirect this packet? */
 	dst = bpf_map_lookup_elem(&redirect_params, eth->h_source);
-	if (!dst)
+	if (!dst) {
+//		bpf_printk("bpf_map_lookup_elem failed");
 		goto out;
+	}
 
+	value = bpf_map_lookup_elem(&tx_port, &index);
+	if(!value){
+//		bpf_printk("bpf_map_lookup_elem tx_port failed");
+		goto out;
+	}
+//	bpf_printk("REDIRECTING PACKET to ifindex %d", *value);
+
+//	bpf_printk("REDIRECTING PACKET");
 	/* Set a proper destination address */
-	memcpy(eth->h_dest, dst, ETH_ALEN);
-	action = bpf_redirect_map(&tx_port, 0, 0);
+	return bpf_redirect_map(&tx_port, 0, 0);
 
 out:
-	return xdp_stats_record_action(ctx, action);
+	return XDP_PASS;
 }
+
+char _license[] SEC("license") = "GPL";
