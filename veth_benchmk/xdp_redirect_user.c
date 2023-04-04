@@ -24,55 +24,7 @@ static const char *__doc__ = "Simple XDP prog doing XDP_PASS\n";
 #define PATH_MAX	4096
 #endif
 
-static int _verbose = 1;
 const char *pin_basedir =  "/sys/fs/bpf";
-
-/* Pinning maps under /sys/fs/bpf in subdir */
-int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir)
-{
-	char map_filename[PATH_MAX];
-	char pin_dir[PATH_MAX];
-	int err, len;
-
-	len = snprintf(pin_dir, PATH_MAX, "%s/%s", pin_basedir, subdir);
-	if (len < 0) {
-		fprintf(stderr, "ERR: creating pin dirname\n");
-		return EXIT_FAIL_OPTION;
-	}
-
-	len = snprintf(map_filename, PATH_MAX, "%s/%s/",
-		       pin_basedir, subdir);
-	if (len < 0) {
-		fprintf(stderr, "ERR: creating pin dir\n");
-		return EXIT_FAIL_OPTION;
-	}
-
-	/* Existing/previous XDP prog might not have cleaned up */
-	if (access(map_filename, F_OK ) != -1 ) {
-		if (_verbose)
-			printf(" - Unpinning (remove) prev maps in %s/\n",
-			       pin_dir);
-
-		/* Basically calls unlink(3) on map_filename */
-		err = bpf_object__unpin_maps(bpf_obj, pin_dir);
-		if (err) {
-			fprintf(stderr, "ERR: UNpinning maps in %s %s\n", pin_dir, strerror(errno));
-			//return EXIT_FAIL_BPF;
-		}
-	}
-	if (_verbose)
-		printf(" - Pinning maps in %s/\n", pin_dir);
-
-	/* This will pin all maps in our bpf_object */
-	err = bpf_object__pin_maps(bpf_obj, pin_dir);
-	if (err){
-        printf("%s: Couldn't bpf_object__pin_maps(%s)\n",
-	 		__FUNCTION__, strerror(errno));
-		return EXIT_FAIL_BPF;
-	}
-
-	return 0;
-}
 
 static const struct option_wrapper long_options[] = {
 	{{"help",        no_argument,		NULL, 'h' },
@@ -99,13 +51,8 @@ static const struct option_wrapper long_options[] = {
 	{{0, 0, NULL,  0 }, NULL, false}
 };
 
-
 int main(int argc, char **argv)
 {
-	// struct bpf_object *obj;
-	// struct bpf_program *prog;
-	// struct bpf_link *link;
-
 	struct bpf_prog_info info = {};
 	__u32 info_len = sizeof(info);
 	char filename[] = "xdp_prog_kern_redirect.o";
@@ -140,50 +87,6 @@ int main(int argc, char **argv)
 		return EXIT_FAIL_OPTION;
 	}
 
-
-    // obj = bpf_object__open_file(cfg.filename, &bpf_opts);
-	// err = libbpf_get_error(obj);
-	// if (err) {
-	// 	printf("%s: Couldn't open file(%s)\n",
-	// 		__FUNCTION__, cfg.filename);
-	// 	return err;
-	// }
-
-	// prog = bpf_object__find_program_by_name(obj, cfg.progname);
-	// if (!prog) {
-	// 	printf("%s: Couldn't find xdp program in bpf object!\n",	__FUNCTION__);
-	// 	err = -ENOENT;
-	// 	return err;
-	// }
-	// bpf_program__set_type(prog, BPF_PROG_TYPE_XDP);
-
-	// err = bpf_object__load(obj);
-	// if (err) {
-	//  	printf("%s: Couldn't load BPF-OBJ file(%s) %s\n",
-	//  		__FUNCTION__, filename, strerror(errno));
-	//  	return err;
-	// }
-
-	// printf("%s: bpf: Attach prog to ifindex %d\n", __FUNCTION__, cfg.ifindex);
-	// link = bpf_program__attach_xdp(prog, cfg.ifindex);
-	// if (!link) {
-	// 	printf("%s:ERROR: failed to attach program to %s\n", __FUNCTION__, cfg.ifname);
-	// 	return err;
-	// }
-
-	// if (_verbose) {
-	// 	printf("Success: Loaded BPF-object(%s) and used section(%s)\n",
-	// 	       cfg.filename, cfg.progname);
-	// 	printf(" - XDP prog attached on device:%s(ifindex:%d)\n",
-	// 	       cfg.ifname, cfg.ifindex);
-	// }
-
-	// /* Use the --dev name as subdir for exporting/pinning maps */
-	// err = pin_maps_in_bpf_object(obj, cfg.ifname);
-	// if (err) {
-	// 	fprintf(stderr, "ERR: pinning maps\n");
-	// 	return err;
-	// }
     /* Create an xdp_program froma a BPF ELF object file */
 	prog = xdp_program__create(&xdp_opts);
 	err = libxdp_get_error(prog);
