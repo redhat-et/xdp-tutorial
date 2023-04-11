@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	struct bpf_prog_info info = {};
 	__u32 info_len = sizeof(info);
 	char filename[] = "xdp_prog_kern_pass.o";
-	char progname[] = "xdp_prog_pass";
+	char progname[] = "xdp_pass_func";
 	struct xdp_program *prog;
 	char errmsg[1024];
 	int prog_fd, err; // = EXIT_SUCCESS;

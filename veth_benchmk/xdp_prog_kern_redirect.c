@@ -5,6 +5,8 @@
 #include <bpf/bpf_endian.h>
 #include <netinet/ether.h>
 
+#define _DEBUG 0
+
 /* Header cursor to keep track of current parsing position */
 struct hdr_cursor {
     void *pos;
@@ -69,30 +71,40 @@ int xdp_prog_redirect(struct xdp_md *ctx)
 	/* Parse Ethernet and IP/IPv6 headers */
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
 	if (eth_type == -1){
-//      cat /sys/kernel/debug/tracing/trace_pipe
-//		bpf_printk("Dont know the ethtype");
+#ifdef _DEBUG
+//      cat /sys/kernel/_DEBUG/tracing/trace_pipe
+		bpf_printk("Dont know the ethtype");
+#endif
 		goto out;
 	}
 
 	/* Do we know where to redirect this packet? */
 	dst = bpf_map_lookup_elem(&redirect_params, eth->h_source);
 	if (!dst) {
-//		bpf_printk("bpf_map_lookup_elem failed");
+#ifdef _DEBUG
+		bpf_printk("bpf_map_lookup_elem failed");
+#endif
 		goto out;
 	}
 
 	value = bpf_map_lookup_elem(&tx_port, &index);
 	if(!value){
-//		bpf_printk("bpf_map_lookup_elem tx_port failed");
+#ifdef _DEBUG
+		bpf_printk("bpf_map_lookup_elem tx_port failed");
+#endif
 		goto out;
 	}
-//	bpf_printk("REDIRECTING PACKET to ifindex %d", *value);
 
-//	bpf_printk("REDIRECTING PACKET");
-	/* Set a proper destination address */
+#ifdef _DEBUG
+	bpf_printk("REDIRECTING PACKET to ifindex %d", *value);
+#endif
+
 	return bpf_redirect_map(&tx_port, 0, 0);
 
 out:
+#ifdef _DEBUG
+    bpf_printk("XDP_PASS");
+#endif
 	return XDP_PASS;
 }
 

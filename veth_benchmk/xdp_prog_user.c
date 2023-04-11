@@ -50,37 +50,6 @@ static const struct option_wrapper long_options[] = {
 	{{0, 0, NULL,  0 }, NULL, false}
 };
 
-// static int parse_u8(char *str, unsigned char *x)
-// {
-// 	unsigned long z;
-
-// 	z = strtoul(str, 0, 16);
-// 	if (z > 0xff)
-// 		return -1;
-
-// 	if (x)
-// 		*x = z;
-
-// 	return 0;
-// }
-// static int parse_mac(char *str, unsigned char mac[ETH_ALEN])
-// {
-// 	if (parse_u8(str, &mac[0]) < 0)
-// 		return -1;
-// 	if (parse_u8(str + 3, &mac[1]) < 0)
-// 		return -1;
-// 	if (parse_u8(str + 6, &mac[2]) < 0)
-// 		return -1;
-// 	if (parse_u8(str + 9, &mac[3]) < 0)
-// 		return -1;
-// 	if (parse_u8(str + 12, &mac[4]) < 0)
-// 		return -1;
-// 	if (parse_u8(str + 15, &mac[5]) < 0)
-// 		return -1;
-
-// 	return 0;
-// }
-
 static int parse_mac(char *str, unsigned char mac[ETH_ALEN])
 {
 	unsigned int v[ETH_ALEN];

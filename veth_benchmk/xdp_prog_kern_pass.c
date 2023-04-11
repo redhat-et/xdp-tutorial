@@ -3,9 +3,11 @@
 #include <bpf/bpf_helpers.h>
 
 SEC("xdp")
-int  xdp_prog_pass(struct xdp_md *ctx)
+int xdp_pass_func(struct xdp_md *ctx)
 {
-	return XDP_PASS;
+	//      cat /sys/kernel/debug/tracing/trace_pipe
+	bpf_printk("xdp_pass_func %s", __FUNCTION__);
+    return XDP_PASS;
 }
 
 char _license[] SEC("license") = "GPL";
