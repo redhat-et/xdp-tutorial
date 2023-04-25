@@ -27,8 +27,8 @@ rm -rf /var/run/netns/*
 # Start containers and copy configs
 #####################################
 
-docker run -dit --name cndp-frr1 --privileged quay.io/mtahhan/cndp-fedora-frr
-docker run -dit --name cndp-frr2 --privileged quay.io/mtahhan/cndp-fedora-frr
+docker run -dit --name cndp-frr1 --privileged cndp-veth-bench
+docker run -dit --name cndp-frr2 --privileged cndp-veth-bench
 docker cp crc.diff cndp-frr1:/cndp/crc.diff
 docker cp apply-crc.sh cndp-frr1:/cndp/
 docker exec cndp-frr1 ./cndp/apply-crc.sh
@@ -74,8 +74,6 @@ ip netns
 # Setup veth
 ###############################################
 
-
-echo "creating and connecting veth interfaces"
 
 echo "creating and connecting veth interfaces"
 
@@ -127,3 +125,5 @@ ip link set veth7 up
 # Attach the veth pair to bridge
 ip link set dev veth5 master br0
 ip link set dev veth7 master br0
+
+docker exec -ti cndp-frr2 arp -s 192.168.100.20 36:da:e7:35:a9:bc
