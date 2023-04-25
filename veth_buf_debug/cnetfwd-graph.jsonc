@@ -84,19 +84,12 @@
     //    skb_mode      - (O) Enable XDP_FLAGS_SKB_MODE when creating af_xdp socket, forces copy mode, default false
     //    description   - (O) the description, 'desc' can be used as well
     "lports": {
-        "veth6:0": {
+        "veth4:0": {
             "pmd": "net_af_xdp",
             "qid": 0,
             "umem": "umem0",
             "region": 0,
             "description": "LAN 0 port"
-        },
-        "veth8:0": {
-            "pmd": "net_af_xdp",
-            "qid": 0,
-            "umem": "umem0",
-            "region": 1,
-            "description": "LAN 1 port"
         }
     },
 
@@ -110,7 +103,6 @@
         "initial": [0],
         "timer": [1],
         "group0": [6],
-        "group1": [8],
         "default": ["0"]
     },
 
@@ -131,8 +123,6 @@
 
         // Optional example application options, note the key-name needs to match the thread name
         "graph:0": ["ip4*", "udp*", "tcp*", "pkt_drop", "chnl*", "kernel_recv*"],
-        "graph:1": ["ip4*", "udp*", "tcp*", "pkt_drop", "chnl*", "kernel_recv*"],
-
         // Array of channels to open 'type:ipaddr:port'
         //   type   - udp4 | tcp4 | udp4-listen | tcp4-listen
         //   ipaddr - IPv4 address (0.0.0.0 for any)
@@ -140,11 +130,6 @@
         "graph:0-chnl": [
             "udp4-listen:5678",
             "tcp4-listen:4433"
-        ],
-        "graph:1-chnl": [
-            "udp4-listen:5678",
-            "tcp4-listen:4433",
-            "tcp4-connect:198.18.2.1:2222"
         ]
     },
 
@@ -168,7 +153,7 @@
         },
         "graph:0": {
             "group": "group0",
-            "lports": ["veth6:0", "veth8:0"],
+            "lports": ["veth4:0"],
             "description": "Graph thread 0"
         }
     }

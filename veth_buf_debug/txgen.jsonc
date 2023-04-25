@@ -88,13 +88,6 @@
             "umem": "umem0",
             "region": 0,
             "description": "LAN 0 port"
-        },
-        "veth4:0": {
-            "pmd": "net_af_xdp",
-            "qid": 0,
-            "umem": "umem0",
-            "region": 1,
-            "description": "LAN 1 port"
         }
     },
 
@@ -107,7 +100,6 @@
     "lcore-groups": {
         "initial": [1],
         "group0": [2],
-        "group1": [4],
         "default": ["1"]
     },
 
@@ -148,11 +140,6 @@
             "group": "group0",
             "lports": ["veth2:0"],
             "description": "Thread 0"
-        },
-        "rxtx:1": {
-            "group": "group1",
-            "lports": ["veth4:0"],
-            "description": "Thread 1"
         }
     }
 }
